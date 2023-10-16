@@ -9,8 +9,8 @@
 #include <PubSubClient.h> // Include the PubSubClient library
 
 MPU6050 mpu; // Define the sensor
-const char* ssid = "iPhone (8)";
-const char* password = "NYluft1993";
+const char* ssid; //definie the ssid
+const char* password; //definie the password
 
 const char* mqttServer = "broker.hivemq.com";
 const int mqttPort = 1883; // Default MQTT port
