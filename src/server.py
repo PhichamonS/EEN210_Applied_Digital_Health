@@ -7,6 +7,7 @@ from datetime import datetime
 import asyncio
 
 app = FastAPI()
+MQTT_topic = "een210" 
 
 html = """
 <!DOCTYPE html>
@@ -114,8 +115,8 @@ class CloseEvent:
     async def __call__(self, websocket, _):
         self.mqtt_handler.unsubscribe_mqtt()
 
-mqtt_handler = MQTTHandler("broker.hivemq.com", "ddwddwdd")
-# mqtt_handler = MQTTHandler("broker.emqx.io", "ddwddwdd")
+mqtt_handler = MQTTHandler("broker.hivemq.com", "MQTT_topic")
+# mqtt_handler = MQTTHandler("broker.emqx.io", "MQTT_topic")
 
 @app.get("/")
 async def get():
