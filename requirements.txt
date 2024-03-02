@@ -7,3 +7,4 @@ scikit_learn
 uvicorn
 websocket_client
 websockets
+plotnine

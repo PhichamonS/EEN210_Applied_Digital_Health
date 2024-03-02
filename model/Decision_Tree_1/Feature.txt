@@ -1,0 +1,10 @@
+selected_feature = ['acceleration_x_median',
+                        'acceleration_z_median',
+                        'acceleration_z_max',
+                        'acceleration_z_std',
+                        'acceleration_z_min',
+                        'acceleration_y_median',
+                        'acc_magnitude_mean',
+                        'acc_magnitude_sum',
+                        'acc_magnitude_std',
+                        'gyroscope_z_std']
