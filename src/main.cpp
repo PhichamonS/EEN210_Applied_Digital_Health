@@ -8,11 +8,11 @@
 
 // Public internet, allow port in firewall
 // Replace with your network credentials
-const char *ssid = "Annas iPhone (2)";
-const char *password = "ssx5e3ak5s6dm";
+const char *ssid = "Aless";
+const char *password = "12345678";
 
 // Replace with your WebSocket server address
-const char *webSocketServer = "172.20.10.5";
+const char *webSocketServer = "192.168.200.79";
 
 const int webSocketPort = 8000;
 const char *webSocketPath = "/";

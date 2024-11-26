@@ -7,11 +7,15 @@ import uvicorn
 import numpy as np
 import pickle
 import joblib
+import asyncio
 
-from fastapi import FastAPI, WebSocket
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, WebSocket, Form
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi import WebSocketDisconnect
 from starlette.middleware.cors import CORSMiddleware
+
+from fhirclient import client
+import fhirclient.models.patient as p
 
 app = FastAPI()
 # Enable CORS for all origins
@@ -23,16 +27,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-with open("./src/index.html", "r") as f:
+# FHIR server URL
+url = "https://fhirsandbox.healthit.gov/open/r4/fhir/Patient?_format=json"
+
+# Load HTML for the root endpoint
+with open("./src/app.html", "r") as f:
     html = f.read()
 
-
+# DataProcessor class and methods remain unchanged
 class DataProcessor:
     def __init__(self):
         self.data_buffer = []
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.file_path = f"fall_front__mew_data_{timestamp}.csv"
+        self.file_path = f"fall_front_data_{timestamp}.csv"
 
     def add_data(self, data):
         self.data_buffer.append(data)
@@ -53,8 +61,9 @@ class DataProcessor:
         del self.data_buffer[:nwin]
 
 
+data_collection = DataProcessor()
 data_processor = DataProcessor()
-data_processor_2 = DataProcessor()
+
 
 
 def load_model():
@@ -131,15 +140,12 @@ def predict_label(sc=None, model=None, data=None):
     # you should modify this to return the label
     if model is not None:
 
-        # selected_feature = ['acceleration_x_median', 'acceleration_y_median', 'acceleration_z_median', 'acceleration_x_std', 'acceleration_x_max', 'acceleration_y_std', 'acceleration_y_max', 'acceleration_z_mean', 'acceleration_z_std', 'acceleration_z_min', 'acceleration_z_max', 'gyroscope_x_std', 'gyroscope_y_std', 'gyroscope_y_min', 'gyroscope_y_max', 'gyroscope_z_std', 'gyroscope_z_min', 'gyroscope_z_max', 'acc_magnitude_sum', 'acc_magnitude_mean', 'acc_magnitude_std', 'acc_magnitude_min', 'acc_magnitude_max', 'gyr_magnitude_std', 'gyr_magnitude_min', 'gyr_magnitude_max']
-
         selected_feature = ['acceleration_x_median', 'acceleration_x_LR', 'acceleration_x_std',
        'acceleration_z_median', 'acceleration_z_min', 'gyr_magnitude_std',
        'gyroscope_z_std', 'acceleration_y', 'acceleration_y_median',
        'acc_magnitude_min', 'acceleration_y_std', 'acceleration_x_sum']
         
-        
-
+    
         feat = data[selected_feature].dropna()
         
         feat_scale = sc.transform(feat)
@@ -178,25 +184,106 @@ websocket_manager = WebSocketManager()
 (sc, model) = load_model()
 
 
-
 @app.get("/")
 async def get():
     return HTMLResponse(html)
 
-label = ''
+
+
+def fhir_resource_w19(patientId, fall_datetime, record_datetime):
+    """
+    Generates a FHIR Condition resource for a patient with ICD-10 code W19 (Unspecified fall).
+    
+    Parameters:
+    - patientId (str): The unique identifier of the patient.
+    
+    Returns:
+    - dict: A FHIR Condition resource for the specified patient ID and ICD-10 code W19.
+    """
+    condition_resource = {
+        "resourceType": "Condition",
+        "id": "example-W19",
+        "clinicalStatus": {
+            "coding": [
+                {"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active"}
+            ]
+        },
+        "verificationStatus": {
+            "coding": [
+                {"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed"}
+            ]
+        },
+        "category": [
+            {
+                "coding": [
+                    {"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "encounter-diagnosis", "display": "Encounter Diagnosis"}
+                ]
+            }
+        ],
+        "severity": {
+            "coding": [
+                {"system": "http://snomed.info/sct", "code": "255604002", "display": "Mild"}
+            ]
+        },
+        "code": {
+            "coding": [
+                {"system": "http://hl7.org/fhir/sid/icd-10", "code": "W19", "display": "Unspecified fall"}
+            ]
+        },
+        "subject": {
+            "reference": f"Patient:{patientId}",
+        },
+        "encounter": {
+            "reference": "Encounter/example"
+        },
+        "onsetDateTime": fall_datetime,
+        "recordedDate": record_datetime,
+        "recorder": {
+            "reference": "Practitioner",
+            "display": "Dr. Margueritte"
+        },
+        "asserter": {
+            "reference": "Practitioner",
+            "display": "Dr. Margueritte"
+        }
+    }
+
+    return condition_resource
+
+
+
+label = ""
+content = ""
+persist_patient_id = ""
+
+
+async def wait_for_patient_id():
+    while persist_patient_id == "":  # Check if the patient ID is not set
+        await asyncio.sleep(1)  # Wait for 1 second before checking again
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+
+    # Wait for connection
     await websocket_manager.connect(websocket)
+
+    # Wait for user input
+    await wait_for_patient_id()
+    await websocket_manager.broadcast_message(json.dumps({
+                                                'action':'updateDiv',
+                                                'content': 'Awaiting fall detection'}))
+                                                
     try:
         count_false = 0
         count_window = 0
         fall_trigger = 0
         fall_thres = 20
+        fall_datetime = ""
 
-        while True:
+        while True:            
+
             data = await websocket.receive_text()
-            # print("hi")
 
             # Broadcast the incoming data to all connected clients
             json_data = json.loads(data)
@@ -204,22 +291,21 @@ async def websocket_endpoint(websocket: WebSocket):
             # use raw_data for prediction
             raw_data = list(json_data.values())
 
-            data_processor_2.add_data(raw_data)  
+            data_processor.add_data(raw_data)  
 
             # Add time stamp to the last received data
-            json_data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            data_processor.add_data(json_data)
+            json_data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")            
             
-            # this line save the recent 100 samples to the CSV file. you can change 100 if you want.
-            if len(data_processor.data_buffer) >= 100:
-                data_processor.save_to_csv()
+            # This line save the recent 100 samples to the CSV file. you can change 100 if you want.
+            # data_collection.add_data(json_data)
+            # if len(data_collection.data_buffer) >= 100:
+            #     data_collection.save_to_csv()
 
-
-            if len(data_processor_2.data_buffer) >= 30: # Collecting 30 data points for processing
+            if len(data_processor.data_buffer) >= 30: # Collecting 30 data points for processing
                 
                 # convert data to dataframe
-                df = pd.DataFrame(data_processor_2.data_buffer, columns=['acceleration_x', 'acceleration_y', 'acceleration_z', 'gyroscope_x','gyroscope_y', 'gyroscope_z'])
+                df = pd.DataFrame(data_processor.data_buffer, 
+                                  columns=['acceleration_x', 'acceleration_y', 'acceleration_z', 'gyroscope_x','gyroscope_y', 'gyroscope_z'])
                 
                 # Process data and calculate feature
                 df_feat = calFeat(df,11,21)
@@ -228,12 +314,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 global label
                 label = predict_label(sc, model, df_feat)
 
+                datetime_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                print(datetime_str, ':', label)
+
+                await websocket_manager.broadcast_message(json.dumps({'action' : "timeUpdate", 'content': f"{datetime_str[:-4]} | {label}"}))
+
                 # Remove first 10 data point from data buffer
-                data_processor_2.sliding(10)
-
-                print(datetime.now().strftime("%H:%M:%S.%f"))
-                print(label)
-
+                data_processor.sliding(10)                
                 
                 if fall_trigger == 1:
                     # Try to count laying window after fall
@@ -248,23 +335,33 @@ async def websocket_endpoint(websocket: WebSocket):
                         if label != 'laying':
                             count_false = count_false + 1                    
                                 
-                        if count_false >= 2:
+                        if count_false >= 4:
                             # False fall detection -> reset counter
                                 count_false = 0
                                 count_window = 0
                                 fall_trigger = 0
+                                fall_datetime =""
 
                         elif count_window == fall_thres:
                             # Fall detection activate
-                            print('!!! ALERT !!!')
+                            print('alert')
+                            alert_message = json.dumps({
+                                    'action':'fallAlert',
+                                    'content': fhir_resource_w19(persist_patient_id,fall_datetime, datetime.now().strftime("%Y%m%d %H:%M:%S"))
+                                })
+                            await websocket_manager.broadcast_message(alert_message)
+
                             count_false = 0
                             count_window = 0
+                            fall_trigger = 0
+                            fall_datetime =""
 
                     # print('win = ', count_window ,'/',fall_thres , 'false = ', count_false)
 
                 else:
                     if label == 'falling':
                         fall_trigger = 1
+                        fall_datetime = datetime.now().strftime("%Y%m%d %H:%M:%S")
                         print('trigger fall detection')
                 
             """  
@@ -273,7 +370,6 @@ async def websocket_endpoint(websocket: WebSocket):
             You need to modify the predict_label function to return the true label
             """
             # label = predict_label(model, raw_data)
-            
             json_data["label"] = label
 
             # print the last data in the terminal
@@ -285,6 +381,49 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         websocket_manager.disconnect(websocket)
 
+persit_patient_id = ''
 
+# Endpoint for fetching patient data from a FHIR server
+@app.post("/fetch-patient")
+async def fetch_patient_data(patientId: str = Form(...)):
+    # Configuration for FHIR server
+    settings = {
+        'app_id': 'my_app',
+        'api_base': url  # Use the provided FHIR server URL
+    }
+        
+    # Initialize the FHIR client
+    fhir_client = client.FHIRClient(settings=settings)
+
+    try:
+        # Retrieve the patient resource
+        patient = p.Patient.read(patientId, fhir_client.server)
+        global persist_patient_id
+        persist_patient_id = patientId
+
+        # Extract patient's name
+        if patient.name:
+            full_names = [' '.join(name.given + [name.family]) for name in patient.name]
+            patient_name = ', '.join(full_names)
+        else:
+            patient_name = "Patient's name is not available"
+
+        # Calculate age
+        if patient.birthDate:
+            birth_date = datetime.strptime(patient.birthDate.isostring, '%Y-%m-%d')
+            today = datetime.today()
+            age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+            patient_age = age
+        else:
+            patient_age = "Patient's birth date is not available"
+
+        patient_data = {'name': patient_name, 'age': patient_age}
+
+    except Exception as e:
+        return {'error': str(e)}
+
+    return JSONResponse(content=patient_data)
+
+# Ensure your code for DataProcessor, load_model, and any other necessary functionality is properly integrated above
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

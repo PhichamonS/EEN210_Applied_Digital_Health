@@ -1,83 +1,180 @@
 <!DOCTYPE html>
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Data Viewer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet"> <!-- Adding Roboto font -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background-color: #f4f4f4; /* Light grey background for a softer look */
+            background-color: #f4f4f4;
             margin: 0;
             padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            font-family: 'Roboto', sans-serif; /* Apply Roboto font */
+            font-family: 'Roboto', sans-serif;
         }
-        .parent {
+        .container {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            grid-template-rows: repeat(5, 1fr);
-            width: 80vw;
-            height: 80vh;
-            gap: 10px;
-        }
-        .div1, .div2, .div3, .div4, .div5 {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 20px;
+            width: 1000px;
+            height: 600px;
             padding: 20px;
-            box-sizing: border-box;
-            border-radius: 10px; /* Adding border-radius for softer edges */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 20px rgba(0, 0, 0, 0.1); /* Adding shadows */
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 20px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
         }
-        .div1 { 
-            grid-area: 2 / 4 / 5 / 6; 
-            background-color: #b3e5fc; /* Lighter blue for a calming effect */
+        .section {
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            align-items: center; /* Center items horizontally */
+            justify-content: center; /* Center items vertically */
+            text-align: center; /* Center text horizontally */
         }
-        .div2 { 
-            grid-area: 1 / 1 / 2 / 3; 
-            background-color: #aed581; /* Soft green to indicate positivity without overwhelming */
+        .section:nth-child(odd) {
+            background-color: #c5cae9;
         }
-        .div3 { 
-            grid-area: 5 / 1 / 6 / 2; 
-            background-color: #ffcdd2; /* Soft red for a gentle alert */
+        .section:nth-child(even) {
+            background-color: #ffcdd2;
         }
-        .div4 { 
-            grid-area: 3 / 1 / 5 / 3; 
-            background-color: #c5cae9; /* Light purple for a touch of sophistication */
+        h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
         }
-        .div5 { 
-            grid-area: 1 / 4 / 2 / 6; 
-            background-color: #7986cb; /* Deeper blue for contrast while remaining soft */
-            color: white; 
-        }
-        form {
+        .form-container {
             display: flex;
             flex-direction: column;
+            align-items: center;
         }
-        label, input {
+        label {
             margin-bottom: 10px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            width: 80%;
+            max-width: 300px;
         }
         input[type="button"] {
             cursor: pointer;
-            background-color: #64b5f6; /* Button color that stands out yet remains within the palette */
+            background-color: #64b5f6;
             color: white;
             border: none;
             padding: 10px;
-            border-radius: 5px; /* Rounded corners for buttons */
-            transition: background-color 0.3s ease; /* Smooth transition for button on hover */
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+            width: 30%;
+            text-align: center;
         }
         input[type="button"]:hover {
-            background-color: #42a5f5; /* Slightly darker shade on hover for feedback */
+            background-color: #42a5f5;
+        }
+        .patient-info {
+            padding: 20px;
+            background-color: #7986cb;
+            border-radius: 10px;
+            height: 150px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            color: white;
+            text-align: center;
+        }
+        .monitoring {
+            padding: 20px;
+            background-color: #fafaf9;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .notification {
+            padding: 20px;
+            background-color: #f69cb2;
+            border-radius: 10px;
+            height: 150px;
+            width: 90%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            text-align: left;
+            resize: none;
         }
     </style>
 </head>
+<body>
+    <div class="container">
+        <div class="section">
+            <h3>Patient Selection Form</h3>
+            <div class="form-container">
+                <label for="patientId">Patient ID:</label>
+                <input type="text" id="patientId" name="patientId" required>
+                <input type="button" value="Fetch Patient Data" onclick="fetchPatientData()">
+            </div>
+        </div>
+        <div class="section">
+            <h3>Monitoring</h3>
+            <div class="monitoring" id="monitoring">Patient activities</div>
+                        
+        </div>
+        <div class="section">
+            <h3>Patient INFO</h3>
+            <div class="patient-info" id="patientInfo"> Awaiting patient ID. <br> Try: "9408b549-8bdb-4d5b-8e93-f5d04799fe95" </div>
+            
+        </div>
+        <div class="section">
+            <h3>Notification</h3>
+            <textarea class="notification" id="notification" readonly> </textarea>
+            <input type="button" value="Cancel alert" onclick="removeFallAlert()">
+        </div>
+    </div>
+
+    <script>
+        // Your JavaScript code here
+    </script>
+</body>
+</html>
 
 <script>
+       
+    const ws = new WebSocket("ws://localhost:8000/ws");    
+    
+    // Add onclose event handler
+    ws.onclose = function (event) {
+        console.log("WebSocket closed:", event);   
+        resetTextAreas();         
+    };
+
+    document.addEventListener('DOMContentLoaded', (event) => {
+        ws.onmessage = function(event) {
+            const message = JSON.parse(event.data);
+            
+            // Handling for time update messages
+            if (message.action && message.action === "timeUpdate") {
+                document.getElementById('monitoring').innerText = message.content;
+
+            }else if (message.action && message.action === "updateDiv") {
+                document.getElementById('notification').innerText = message.content;
+
+            }else if (message.action && message.action === "fallAlert") {
+                const jsonData = message.content;
+                // const formattedContent = formatJSON(jsonData);
+                document.getElementById('notification').innerText = JSON.stringify(jsonData);
+                
+            }
+        }   
+    });
+
+    
+    function removeFallAlert() {
+            const notificationDiv = document.getElementById('notification');
+            notificationDiv.innerText = 'Cancel fall alert'; // Clear the text in the notification div 
+    }
+
     async function fetchPatientData() {
         const patientId = document.getElementById('patientId').value;
         const response = await fetch('http://localhost:8000/fetch-patient', {
@@ -95,62 +192,19 @@
             document.getElementById('patientInfo').innerHTML = 'Failed to retrieve patient data.';
         }
     }
+
+    function resetTextAreas() {
+        document.getElementById("patientId").value = ""; // Clear the patient ID input
+        document.getElementById("monitoring").textContent = "Patient activities"; // Reset monitoring text
+        document.getElementById("patientInfo").innerHTML = "Awaiting patient ID. <br> Try: '9408b549-8bdb-4d5b-8e93-f5d04799fe95'"; // Reset patient info text
+        document.getElementById("notification").value = ""; // Clear notification text area
+
+    }
+       
+    // setInterval(updateCurrentTime, 1000); // Call updateCurrentTime every 10 seconds
+    // updateCurrentTime();
+
     
-    document.addEventListener('DOMContentLoaded', (event) => {
-        // The WebSocket endpoint from the second script is used as it appears to be more updated or specific.
-        const ws = new WebSocket("ws://localhost:8000/ws"); 
-        ws.onmessage = function(event) {
-            const message = JSON.parse(event.data);
-            
-            // Handling for time update messages
-            if (message.type && message.type === "timeUpdate") {
-                document.getElementById('current').innerText = message.content;
-            }
-            
-            // Additional handling for instructions to update div1
-            if (message.action && message.action === "updateDiv" && message.divId === 1) {
-                const div = document.querySelector('.div1');
-                if (div) {
-                    div.innerHTML = message.content;
-                }
-            }
-        };
-    });
-   
 
-    setInterval(updateCurrentTime, 1000); // Call updateCurrentTime every 10 seconds
-
-
-    // Call it once initially to show the time immediately before the first 10-second interval passes
-    updateCurrentTime();
 
 </script>
-
-    
-
-
-<head>
-
-
-<body>
-
-    <div class="parent">
-            <h3>Patient Selection Form</h3>
-            <div class="div1" id="notification">Awainting patient id. Try : "9408b549-8bdb-4d5b-8e93-f5d04799fe95" </div>
-        <div class="div2">Patient monitoring</div>
-        <div class="div3" id="current">Current label</div>
-        <div class="div4">
-            <h3>Patient Selection Form</h3>
-            <form id="fhirForm">
-                <label for="patientId">Patient ID:</label>
-                <input type="text" id="patientId" name="patientId" required>
-                <input type="button" value="Fetch Patient Data" onclick="fetchPatientData()">
-            </form>
-        </div>
-        <div class="div5" id="patientInfo">Patient INFO</div> 
-    </div>
-    
-    </body>
-</html> 
-
-
